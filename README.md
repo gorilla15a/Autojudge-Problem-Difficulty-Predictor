@@ -3,7 +3,6 @@
 AutoJudge is a machine learning–based system that predicts the **difficulty of programming problems** using only their textual descriptions.  
 It outputs both a **difficulty class (Easy / Medium / Hard)** and a **continuous difficulty score**, emulating how online judges assess problem complexity.
 
-This project was developed as part of the **ACM IIT Roorkee Open Projects** initiative.
 
 ---
 
