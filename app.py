@@ -1,109 +1,93 @@
 import streamlit as st
-import numpy as np
 import joblib
-import os
+import numpy as np
+import re
+from scipy.sparse import hstack
 
-# --------------------------------------------------
-# Safety check: required files
-# --------------------------------------------------
-REQUIRED_FILES = [
-    "rf.pkl",
-    "tfidf_classifier.pkl",
-    "gb_regressor.pkl",
-    "tfidf_regressor.pkl",
-    "scaler.pkl"
+# LOAD MODELS 
+rf_clf = joblib.load("models/rf.pkl")
+gb_reg = joblib.load("models/gb_regressor.pkl")
+
+tfidf_clf = joblib.load("models/tfidf_classifier.pkl")
+tfidf_reg = joblib.load("models/tfidf_regressor.pkl")
+
+scaler = joblib.load("models/scaler.pkl")
+
+# FEATURE FUNCTIONS 
+math_symbols = ['+', '-', '*', '/', '%', '<', '>', '=', '^']
+keywords = [
+    'graph', 'dp', 'dynamic programming', 'recursion',
+    'optimize', 'complexity', 'tree', 'greedy'
 ]
 
-for file in REQUIRED_FILES:
-    if not os.path.exists(file):
-        st.error(f"Missing required file: {file}")
-        st.stop()
+def count_math_symbols(text):
+    return sum(text.count(sym) for sym in math_symbols)
 
-# --------------------------------------------------
-# Load trained models and preprocessors
-# --------------------------------------------------
-rf_clf = joblib.load("rf.pkl")
-tfidf_clf = joblib.load("tfidf_classifier.pkl")
+def keyword_frequency(text):
+    return sum(text.count(k) for k in keywords)
 
-gb_reg = joblib.load("gb_regressor.pkl")
-tfidf_reg = joblib.load("tfidf_regressor.pkl")
+def semantic_engineered_features(text):
+    return np.array([
+        len(text),
+        count_math_symbols(text),
+        keyword_frequency(text)
+    ])
 
-scaler = joblib.load("scaler.pkl")
+def extract_structural_features(sample_io):
+    text = str(sample_io)
 
-# --------------------------------------------------
-# Streamlit page setup
-# --------------------------------------------------
-st.set_page_config(
-    page_title="AutoJudge – Problem Difficulty Predictor",
-    layout="centered"
-)
+    numbers = re.findall(r'-?\d+', text)
+    num_numbers = len(numbers)
+    max_num_length = max([len(n) for n in numbers], default=0)
 
-st.title(" AutoJudge")
-st.write("Predict the difficulty of a programming problem")
+    num_lines = text.count('\n') + 1 if text.strip() else 0
+    num_brackets = sum(text.count(b) for b in ['[', ']', '{', '}', '(', ')'])
 
-# --------------------------------------------------
-# User inputs
-# --------------------------------------------------
-problem_desc = st.text_area(
-    "Problem Description",
-    height=200,
-    placeholder="Paste the full problem statement here..."
-)
-
-input_desc = st.text_area(
-    "Input Description",
-    height=120,
-    placeholder="Describe the input format..."
-)
-
-output_desc = st.text_area(
-    "Output Description",
-    height=120,
-    placeholder="Describe the output format..."
-)
-
-# --------------------------------------------------
-# Prediction
-# --------------------------------------------------
-if st.button("Predict Difficulty"):
-
-    if problem_desc.strip() == "":
-        st.warning("Please enter the problem description.")
-        st.stop()
-
-    # Combine text
-    full_text = problem_desc + " " + input_desc + " " + output_desc
-
-    # -------------------------
-    # Handcrafted features
-    # -------------------------
-    length = len(full_text)
-    symbol_count = sum(full_text.count(s) for s in ['+', '-', '*', '/', '%', '<', '>'])
-    keyword_count = sum(
-        full_text.count(k)
-        for k in ['graph', 'dp', 'recursion', 'tree', 'greedy']
+    has_matrix_like = int(
+        '[' in text and ']' in text and ',' in text and '\n' in text
     )
 
-    handcrafted = np.array([[length, symbol_count, keyword_count]])
-    handcrafted = scaler.transform(handcrafted)
+    return np.array([
+        num_numbers,
+        num_lines,
+        num_brackets,
+        max_num_length,
+        has_matrix_like
+    ])
 
-    # -------------------------
-    # Classification
-    # -------------------------
-    vec_clf = tfidf_clf.transform([full_text])
-    features_clf = np.hstack([vec_clf.toarray(), handcrafted])
-    difficulty_class = rf_clf.predict(features_clf)[0]
+# STREAMLIT UI 
+st.title("AutoJudge – Problem Difficulty Predictor")
 
-    # -------------------------
-    # Regression
-    # -------------------------
-    vec_reg = tfidf_reg.transform([full_text])
-    features_reg = np.hstack([vec_reg.toarray(), handcrafted])
-    difficulty_score = gb_reg.predict(features_reg)[0]
+problem_desc = st.text_area("Problem Description")
+input_desc = st.text_area("Input Description")
+output_desc = st.text_area("Output Description")
+sample_io = st.text_area("Sample Input / Output (optional)")
 
-    # -------------------------
-    # Output
-    # -------------------------
-    st.success("Prediction complete ")
-    st.markdown(f"###  Difficulty Class: **{difficulty_class.upper()}**")
-    st.markdown(f"###  Difficulty Score: **{round(float(difficulty_score), 2)}**")
+if st.button("Predict Difficulty"):
+
+    # Combine semantic text 
+    full_text = problem_desc + " " + input_desc + " " + output_desc
+
+    # Engineered features (shared) 
+    sem_feats = semantic_engineered_features(full_text)
+    struct_feats = extract_structural_features(sample_io)
+
+    engineered = np.concatenate([sem_feats, struct_feats]).reshape(1, -1)
+    engineered_scaled = scaler.transform(engineered)
+
+    # CLASSIFICATION PIPELINE 
+    X_tfidf_clf = tfidf_clf.transform([full_text])
+    X_final_clf = hstack([X_tfidf_clf, engineered_scaled]).toarray()
+
+    difficulty_class = rf_clf.predict(X_final_clf)[0]
+
+    # REGRESSION PIPELINE
+    X_tfidf_reg = tfidf_reg.transform([full_text])
+    X_final_reg = hstack([X_tfidf_reg, engineered_scaled]).toarray()
+
+    difficulty_score = gb_reg.predict(X_final_reg)[0]
+
+    # Display 
+    st.subheader("Prediction Result")
+    st.write(f"**Predicted Difficulty Class:** {difficulty_class.capitalize()}")
+    st.write(f"**Predicted Difficulty Score:** {difficulty_score:.2f}")
