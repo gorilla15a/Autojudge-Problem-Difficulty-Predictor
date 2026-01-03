@@ -155,6 +155,7 @@ pip install -r requirements.txt
 
 🔗 [Video-Demo](https://drive.google.com/drive/folders/17D8s8VWoIe--yQt4xFSGNPeY24fwgJEc?usp=drive_link)
 
+Use IITR email to access the video.
 ---
 
 ## Personal Info
