@@ -140,14 +140,23 @@ The UI is designed for simplicity and evaluator usability.
 ## Steps to Run locally
 
 1.Create a new folder and select it n VScode to clone 
+
 Clone the repo using the code in VS Code editor.
+
 git clone https://github.com/gorilla15a/AutoJudge-Problem-Difficulty-Predictor.git
+
 cd AutoJudge-Problem-Difficulty-Predictor
+
 2.Create Virtual environment and activate it. Example as follows:
+
 python -m venv vdemo
+
 venv\Scripts\activate
+
 3.Install the requirements as follows.
+
 pip install -r requirements.txt
+
 4. streamlit run app.py
 
 ---
