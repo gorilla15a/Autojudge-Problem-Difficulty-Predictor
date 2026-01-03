@@ -157,7 +157,7 @@ venv\Scripts\activate
 
 pip install -r requirements.txt
 
-4. streamlit run app.py
+4.streamlit run app.py
 
 ---
 ## Video Demo Link
