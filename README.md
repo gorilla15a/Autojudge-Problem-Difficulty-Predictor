@@ -160,7 +160,9 @@ pip install -r requirements.txt
 ## Personal Info
 
 Name: Ansul
-e-mail:ansul@me.iitr.ac.in
+
+E-mail:ansul@me.iitr.ac.in
+
 Enrollment No:23113029
 
 
